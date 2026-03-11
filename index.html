@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tech Productivity Tracker</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 500px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1, h2 { text-align: center; color: #0056b3; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background-color: #0056b3; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; margin-top: 10px; }
+        button:hover { background-color: #004494; }
+        .btn-danger { background-color: #dc3545; margin-top: 20px; }
+        .btn-danger:hover { background-color: #c82333; }
+        .stats-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; }
+        .stat-card { background: #f8f9fa; padding: 15px; margin-bottom: 10px; border-radius: 4px; border-left: 4px solid #0056b3; }
+        .stat-card span { font-size: 1.2em; font-weight: bold; color: #28a745; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Productivity Tracker</h1>
+    
+    <div class="input-group">
+        <label for="points">Получено поинтов (например, 15 для RES TC):</label>
+        <input type="number" id="points" placeholder="Введите количество поинтов" step="0.1">
+    </div>
+    
+    <div class="input-group">
+        <label for="minutes">Затрачено времени (в минутах):</label>
+        <input type="number" id="minutes" placeholder="Например, 60">
+    </div>
+    
+    <button onclick="addJob()">Добавить работу</button>
+
+    <div class="stats-section">
+        <h2>Твоя статистика</h2>
+        <div class="stat-card">
+            <strong>За сегодня:</strong> <span id="stat-day">0%</span>
+        </div>
+        <div class="stat-card">
+            <strong>За эту неделю:</strong> <span id="stat-week">0%</span>
+        </div>
+        <div class="stat-card">
+            <strong>За этот месяц:</strong> <span id="stat-month">0%</span>
+        </div>
+    </div>
+
+    <button class="btn-danger" onclick="clearData()">Сбросить все данные</button>
+</div>
+
+<script>
+    // Загрузка данных из памяти браузера
+    let jobs = JSON.parse(localStorage.getItem('techJobs')) || [];
+
+    function saveJobs() {
+        localStorage.setItem('techJobs', JSON.stringify(jobs));
+    }
+
+    function addJob() {
+        const points = parseFloat(document.getElementById('points').value);
+        const minutes = parseFloat(document.getElementById('minutes').value);
+
+        if (!points || !minutes || points <= 0 || minutes <= 0) {
+            alert("Пожалуйста, введите корректные данные.");
+            return;
+        }
+
+        const job = {
+            id: Date.now(),
+            date: new Date().toISOString(),
+            points: points,
+            actualMinutes: minutes,
+            expectedMinutes: points * 5
+        };
+
+        jobs.push(job);
+        saveJobs();
+        
+        document.getElementById('points').value = '';
+        document.getElementById('minutes').value = '';
+        
+        updateStats();
+    }
+
+    function calculateProductivity(filteredJobs) {
+        if (filteredJobs.length === 0) return "0%";
+        
+        let totalExpected = 0;
+        let totalActual = 0;
+
+        filteredJobs.forEach(job => {
+            totalExpected += job.expectedMinutes;
+            totalActual += job.actualMinutes;
+        });
+
+        const productivity = (totalExpected / totalActual) * 100;
+        return productivity.toFixed(1) + "%";
+    }
+
+    function updateStats() {
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        
+        // Начало недели (Считаем с понедельника)
+        const dayOfWeek = now.getDay() || 7; 
+        const startOfWeek = new Date(startOfDay - (dayOfWeek - 1) * 24 * 60 * 60 * 1000).getTime();
+        
+        // Начало месяца
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+        const todayJobs = jobs.filter(job => new Date(job.date).getTime() >= startOfDay);
+        const weekJobs = jobs.filter(job => new Date(job.date).getTime() >= startOfWeek);
+        const monthJobs = jobs.filter(job => new Date(job.date).getTime() >= startOfMonth);
+
+        document.getElementById('stat-day').innerText = calculateProductivity(todayJobs);
+        document.getElementById('stat-week').innerText = calculateProductivity(weekJobs);
+        document.getElementById('stat-month').innerText = calculateProductivity(monthJobs);
+    }
+
+    function clearData() {
+        if(confirm("Вы уверены, что хотите удалить все данные? Это действие нельзя отменить.")) {
+            jobs = [];
+            saveJobs();
+            updateStats();
+        }
+    }
+
+    // Инициализация статистики при загрузке страницы
+    updateStats();
+</script>
+
+</body>
+</html>
