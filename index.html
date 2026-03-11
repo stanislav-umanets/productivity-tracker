@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -26,35 +26,35 @@
     <h1>Productivity Tracker</h1>
     
     <div class="input-group">
-        <label for="points">Получено поинтов (например, 15 для RES TC):</label>
-        <input type="number" id="points" placeholder="Введите количество поинтов" step="0.1">
+        <label for="points">Points received (e.g., 15 for RES TC):</label>
+        <input type="number" id="points" placeholder="Enter points" step="0.1">
     </div>
     
     <div class="input-group">
-        <label for="minutes">Затрачено времени (в минутах):</label>
-        <input type="number" id="minutes" placeholder="Например, 60">
+        <label for="minutes">Time spent (in minutes):</label>
+        <input type="number" id="minutes" placeholder="e.g., 60">
     </div>
     
-    <button onclick="addJob()">Добавить работу</button>
+    <button onclick="addJob()">Add Job</button>
 
     <div class="stats-section">
-        <h2>Твоя статистика</h2>
+        <h2>Your Statistics</h2>
         <div class="stat-card">
-            <strong>За сегодня:</strong> <span id="stat-day">0%</span>
+            <strong>Today:</strong> <span id="stat-day">0%</span>
         </div>
         <div class="stat-card">
-            <strong>За эту неделю:</strong> <span id="stat-week">0%</span>
+            <strong>This Week:</strong> <span id="stat-week">0%</span>
         </div>
         <div class="stat-card">
-            <strong>За этот месяц:</strong> <span id="stat-month">0%</span>
+            <strong>This Month:</strong> <span id="stat-month">0%</span>
         </div>
     </div>
 
-    <button class="btn-danger" onclick="clearData()">Сбросить все данные</button>
+    <button class="btn-danger" onclick="clearData()">Clear All Data</button>
 </div>
 
 <script>
-    // Загрузка данных из памяти браузера
+    // Load data from browser memory
     let jobs = JSON.parse(localStorage.getItem('techJobs')) || [];
 
     function saveJobs() {
@@ -66,7 +66,7 @@
         const minutes = parseFloat(document.getElementById('minutes').value);
 
         if (!points || !minutes || points <= 0 || minutes <= 0) {
-            alert("Пожалуйста, введите корректные данные.");
+            alert("Please enter valid data.");
             return;
         }
 
@@ -106,11 +106,11 @@
         const now = new Date();
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
         
-        // Начало недели (Считаем с понедельника)
+        // Start of the week (Monday)
         const dayOfWeek = now.getDay() || 7; 
         const startOfWeek = new Date(startOfDay - (dayOfWeek - 1) * 24 * 60 * 60 * 1000).getTime();
         
-        // Начало месяца
+        // Start of the month
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
         const todayJobs = jobs.filter(job => new Date(job.date).getTime() >= startOfDay);
@@ -123,14 +123,14 @@
     }
 
     function clearData() {
-        if(confirm("Вы уверены, что хотите удалить все данные? Это действие нельзя отменить.")) {
+        if(confirm("Are you sure you want to delete all data? This action cannot be undone.")) {
             jobs = [];
             saveJobs();
             updateStats();
         }
     }
 
-    // Инициализация статистики при загрузке страницы
+    // Initialize stats on page load
     updateStats();
 </script>
 
