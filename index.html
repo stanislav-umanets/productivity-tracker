@@ -32,14 +32,12 @@
         
         .tree-node { margin-left: 20px; margin-top: 5px; }
         details > summary { cursor: pointer; outline: none; padding: 5px 0; user-select: none; }
-        details > summary::marker { content: ''; } /* Убираем стандартную стрелку */
+        details > summary::marker { content: ''; } 
         details > summary::-webkit-details-marker { display: none; }
         
-        /* Иконки для папок */
         details > summary::before { content: '📁 '; font-size: 1.1em; }
         details[open] > summary::before { content: '📂 '; }
         
-        /* Стили для карточки самой работы (файла) */
         .history-item { background: #fff; padding: 10px; margin-top: 5px; margin-bottom: 5px; border-radius: 4px; border: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; font-size: 0.9em; position: relative;}
         .history-item::before { content: '📄'; position: absolute; left: -25px; top: 10px; font-size: 1.2em;}
         
@@ -48,6 +46,9 @@
         .edit-btn:hover { background: #e0a800; }
         .delete-btn { background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 0.8em; margin: 0; width: 60px;}
         .delete-btn:hover { background: #c82333; }
+
+        /* Стиль для счетчиков работ в дереве */
+        .node-count { color: #888; font-size: 0.85em; font-weight: normal; margin-left: 5px; }
     </style>
 </head>
 <body>
@@ -226,13 +227,11 @@
             const year = d.getFullYear();
             const month = d.toLocaleString('en-US', { month: 'long' });
             
-            // Вычисляем номер недели в месяце
             const firstDay = new Date(year, d.getMonth(), 1).getDay();
             const date = d.getDate();
             const weekNum = Math.ceil((date + firstDay) / 7);
             const weekStr = `Week ${weekNum}`;
             
-            // Формат дня: Monday, Apr 26
             const dayStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
             if (!tree[year]) tree[year] = {};
@@ -243,35 +242,49 @@
             tree[year][month][weekStr][dayStr].push(job);
         });
 
-        // 2. Отрисовываем дерево
-        // Сортируем года по убыванию
+        // 2. Отрисовываем дерево с подсчетом
         Object.keys(tree).sort((a,b) => b - a).forEach(year => {
             const yearDetails = document.createElement('details');
             yearDetails.className = 'tree-node';
-            yearDetails.open = true; // Открыто по умолчанию
-            yearDetails.innerHTML = `<summary>${year}</summary>`;
+            yearDetails.open = true;
+            
+            let yearJobCount = 0;
+            const yearSummary = document.createElement('summary');
+            yearDetails.appendChild(yearSummary);
             
             Object.keys(tree[year]).forEach(month => {
                 const monthDetails = document.createElement('details');
                 monthDetails.className = 'tree-node';
                 monthDetails.open = true;
-                monthDetails.innerHTML = `<summary>${month}</summary>`;
+                
+                let monthJobCount = 0;
+                const monthSummary = document.createElement('summary');
+                monthDetails.appendChild(monthSummary);
                 
                 Object.keys(tree[year][month]).sort().forEach(week => {
                     const weekDetails = document.createElement('details');
                     weekDetails.className = 'tree-node';
-                    weekDetails.innerHTML = `<summary>${week}</summary>`;
+                    
+                    let weekJobCount = 0;
+                    const weekSummary = document.createElement('summary');
+                    weekDetails.appendChild(weekSummary);
                     
                     Object.keys(tree[year][month][week]).forEach(day => {
                         const dayDetails = document.createElement('details');
                         dayDetails.className = 'tree-node';
-                        dayDetails.innerHTML = `<summary>${day}</summary>`;
+                        
+                        const dayJobs = tree[year][month][week][day].sort((a,b) => new Date(b.date) - new Date(a.date));
+                        const dayJobCount = dayJobs.length;
+                        
+                        // Добавляем к родительским счетчикам
+                        weekJobCount += dayJobCount;
+                        monthJobCount += dayJobCount;
+                        yearJobCount += dayJobCount;
+                        
+                        dayDetails.innerHTML = `<summary>${day} <span class="node-count">(${dayJobCount} jobs)</span></summary>`;
                         
                         const jobsContainer = document.createElement('div');
-                        jobsContainer.style.marginLeft = '35px'; // Отступ для файлов
-                        
-                        // Сортируем работы по времени от новых к старым
-                        const dayJobs = tree[year][month][week][day].sort((a,b) => new Date(b.date) - new Date(a.date));
+                        jobsContainer.style.marginLeft = '35px'; 
                         
                         dayJobs.forEach(job => {
                             const timeStr = new Date(job.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
@@ -295,10 +308,16 @@
                         dayDetails.appendChild(jobsContainer);
                         weekDetails.appendChild(dayDetails);
                     });
+                    
+                    weekSummary.innerHTML = `${week} <span class="node-count">(${weekJobCount} jobs)</span>`;
                     monthDetails.appendChild(weekDetails);
                 });
+                
+                monthSummary.innerHTML = `${month} <span class="node-count">(${monthJobCount} jobs)</span>`;
                 yearDetails.appendChild(monthDetails);
             });
+            
+            yearSummary.innerHTML = `${year} <span class="node-count">(${yearJobCount} jobs)</span>`;
             container.appendChild(yearDetails);
         });
     }
