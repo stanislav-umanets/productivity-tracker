@@ -26,15 +26,27 @@
         .stat-info span { font-size: 1.2em; font-weight: bold; color: #28a745; display: block; margin-top: 5px;}
         .stat-count { font-size: 0.9em; color: #666; }
 
-        details { margin-top: 20px; background: #f8f9fa; border-radius: 4px; padding: 10px; border: 1px solid #ddd; }
-        summary { font-weight: bold; cursor: pointer; color: #0056b3; outline: none; }
-        .history-list { margin-top: 15px; max-height: 300px; overflow-y: auto; }
-        .history-item { background: #fff; padding: 10px; margin-bottom: 8px; border-radius: 4px; border: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; font-size: 0.9em;}
+        /* Стили для древовидного меню */
+        .history-main-details { margin-top: 20px; background: #f8f9fa; border-radius: 4px; padding: 10px; border: 1px solid #ddd; }
+        .history-main-details > summary { font-weight: bold; cursor: pointer; color: #0056b3; font-size: 1.1em; }
+        
+        .tree-node { margin-left: 20px; margin-top: 5px; }
+        details > summary { cursor: pointer; outline: none; padding: 5px 0; user-select: none; }
+        details > summary::marker { content: ''; } /* Убираем стандартную стрелку */
+        details > summary::-webkit-details-marker { display: none; }
+        
+        /* Иконки для папок */
+        details > summary::before { content: '📁 '; font-size: 1.1em; }
+        details[open] > summary::before { content: '📂 '; }
+        
+        /* Стили для карточки самой работы (файла) */
+        .history-item { background: #fff; padding: 10px; margin-top: 5px; margin-bottom: 5px; border-radius: 4px; border: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; font-size: 0.9em; position: relative;}
+        .history-item::before { content: '📄'; position: absolute; left: -25px; top: 10px; font-size: 1.2em;}
         
         .action-buttons { display: flex; gap: 5px; flex-direction: column;}
-        .edit-btn { background: #ffc107; color: #333; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 0.8em; margin: 0;}
+        .edit-btn { background: #ffc107; color: #333; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 0.8em; margin: 0; width: 60px;}
         .edit-btn:hover { background: #e0a800; }
-        .delete-btn { background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 0.8em; margin: 0;}
+        .delete-btn { background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 0.8em; margin: 0; width: 60px;}
         .delete-btn:hover { background: #c82333; }
     </style>
 </head>
@@ -81,9 +93,9 @@
         </div>
     </div>
 
-    <details>
+    <details class="history-main-details" open>
         <summary>View Job History</summary>
-        <div class="history-list" id="history-container">
+        <div id="history-container">
             </div>
     </details>
 
@@ -108,16 +120,14 @@
         }
 
         if (editingJobId) {
-            // Обновляем существующую работу
             const jobIndex = jobs.findIndex(j => j.id === editingJobId);
             if (jobIndex !== -1) {
                 jobs[jobIndex].points = points;
                 jobs[jobIndex].actualMinutes = minutes;
                 jobs[jobIndex].expectedMinutes = points * 5;
             }
-            cancelEdit(); // Сбрасываем форму после обновления
+            cancelEdit(); 
         } else {
-            // Создаем новую работу
             const job = {
                 id: Date.now(),
                 date: new Date().toISOString(),
@@ -138,16 +148,13 @@
     function editJob(id) {
         const job = jobs.find(j => j.id === id);
         if (job) {
-            // Подставляем значения в поля
             document.getElementById('points').value = job.points;
             document.getElementById('minutes').value = job.actualMinutes;
             
-            // Меняем интерфейс для редактирования
             editingJobId = id;
             document.getElementById('submit-btn').innerText = 'Update Job';
             document.getElementById('cancel-edit-btn').style.display = 'block';
             
-            // Прокручиваем страницу наверх к форме ввода
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     }
@@ -183,7 +190,6 @@
     function updateUI() {
         const now = new Date();
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-        
         const dayOfWeek = now.getDay() || 7; 
         const startOfWeek = new Date(startOfDay - (dayOfWeek - 1) * 24 * 60 * 60 * 1000).getTime();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
@@ -200,38 +206,100 @@
         document.getElementById('count-week').innerText = `Jobs: ${weekJobs.length}`;
         document.getElementById('count-month').innerText = `Jobs: ${monthJobs.length}`;
 
-        renderHistory();
+        renderTreeHistory();
     }
 
-    function renderHistory() {
+    function renderTreeHistory() {
         const container = document.getElementById('history-container');
         container.innerHTML = ''; 
 
         if (jobs.length === 0) {
-            container.innerHTML = '<p style="text-align: center; color: #666;">No jobs added yet.</p>';
+            container.innerHTML = '<p style="text-align: center; color: #666; margin-top: 10px;">No jobs added yet.</p>';
             return;
         }
 
-        const sortedJobs = [...jobs].sort((a, b) => new Date(b.date) - new Date(a.date));
+        // 1. Группируем данные
+        const tree = {};
+        
+        jobs.forEach(job => {
+            const d = new Date(job.date);
+            const year = d.getFullYear();
+            const month = d.toLocaleString('en-US', { month: 'long' });
+            
+            // Вычисляем номер недели в месяце
+            const firstDay = new Date(year, d.getMonth(), 1).getDay();
+            const date = d.getDate();
+            const weekNum = Math.ceil((date + firstDay) / 7);
+            const weekStr = `Week ${weekNum}`;
+            
+            // Формат дня: Monday, Apr 26
+            const dayStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
-        sortedJobs.forEach(job => {
-            const dateObj = new Date(job.date);
-            const dateString = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-            const prod = ((job.expectedMinutes / job.actualMinutes) * 100).toFixed(1);
+            if (!tree[year]) tree[year] = {};
+            if (!tree[year][month]) tree[year][month] = {};
+            if (!tree[year][month][weekStr]) tree[year][month][weekStr] = {};
+            if (!tree[year][month][weekStr][dayStr]) tree[year][month][weekStr][dayStr] = [];
 
-            const div = document.createElement('div');
-            div.className = 'history-item';
-            div.innerHTML = `
-                <div>
-                    <strong>${dateString}</strong><br>
-                    Pts: ${job.points} | Mins: ${job.actualMinutes} | Prod: ${prod}%
-                </div>
-                <div class="action-buttons">
-                    <button class="edit-btn" onclick="editJob(${job.id})">✎ Edit</button>
-                    <button class="delete-btn" onclick="deleteJob(${job.id})">✖</button>
-                </div>
-            `;
-            container.appendChild(div);
+            tree[year][month][weekStr][dayStr].push(job);
+        });
+
+        // 2. Отрисовываем дерево
+        // Сортируем года по убыванию
+        Object.keys(tree).sort((a,b) => b - a).forEach(year => {
+            const yearDetails = document.createElement('details');
+            yearDetails.className = 'tree-node';
+            yearDetails.open = true; // Открыто по умолчанию
+            yearDetails.innerHTML = `<summary>${year}</summary>`;
+            
+            Object.keys(tree[year]).forEach(month => {
+                const monthDetails = document.createElement('details');
+                monthDetails.className = 'tree-node';
+                monthDetails.open = true;
+                monthDetails.innerHTML = `<summary>${month}</summary>`;
+                
+                Object.keys(tree[year][month]).sort().forEach(week => {
+                    const weekDetails = document.createElement('details');
+                    weekDetails.className = 'tree-node';
+                    weekDetails.innerHTML = `<summary>${week}</summary>`;
+                    
+                    Object.keys(tree[year][month][week]).forEach(day => {
+                        const dayDetails = document.createElement('details');
+                        dayDetails.className = 'tree-node';
+                        dayDetails.innerHTML = `<summary>${day}</summary>`;
+                        
+                        const jobsContainer = document.createElement('div');
+                        jobsContainer.style.marginLeft = '35px'; // Отступ для файлов
+                        
+                        // Сортируем работы по времени от новых к старым
+                        const dayJobs = tree[year][month][week][day].sort((a,b) => new Date(b.date) - new Date(a.date));
+                        
+                        dayJobs.forEach(job => {
+                            const timeStr = new Date(job.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                            const prod = ((job.expectedMinutes / job.actualMinutes) * 100).toFixed(1);
+                            
+                            const jobDiv = document.createElement('div');
+                            jobDiv.className = 'history-item';
+                            jobDiv.innerHTML = `
+                                <div>
+                                    <strong>${timeStr}</strong><br>
+                                    Pts: ${job.points} | Mins: ${job.actualMinutes} | Prod: ${prod}%
+                                </div>
+                                <div class="action-buttons">
+                                    <button class="edit-btn" onclick="editJob(${job.id})">Edit</button>
+                                    <button class="delete-btn" onclick="deleteJob(${job.id})">Del</button>
+                                </div>
+                            `;
+                            jobsContainer.appendChild(jobDiv);
+                        });
+                        
+                        dayDetails.appendChild(jobsContainer);
+                        weekDetails.appendChild(dayDetails);
+                    });
+                    monthDetails.appendChild(weekDetails);
+                });
+                yearDetails.appendChild(monthDetails);
+            });
+            container.appendChild(yearDetails);
         });
     }
 
@@ -243,7 +311,6 @@
         }
     }
 
-    // Initialize UI
     updateUI();
 </script>
 
