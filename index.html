@@ -11,13 +11,31 @@
         .input-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-weight: bold; }
         input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        
         button { width: 100%; padding: 10px; background-color: #0056b3; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; margin-top: 10px; }
         button:hover { background-color: #004494; }
+        
+        .btn-secondary { background-color: #6c757d; display: none; }
+        .btn-secondary:hover { background-color: #5a6268; }
+        
         .btn-danger { background-color: #dc3545; margin-top: 20px; }
         .btn-danger:hover { background-color: #c82333; }
+        
         .stats-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; }
-        .stat-card { background: #f8f9fa; padding: 15px; margin-bottom: 10px; border-radius: 4px; border-left: 4px solid #0056b3; }
-        .stat-card span { font-size: 1.2em; font-weight: bold; color: #28a745; }
+        .stat-card { background: #f8f9fa; padding: 15px; margin-bottom: 10px; border-radius: 4px; border-left: 4px solid #0056b3; display: flex; justify-content: space-between; align-items: center;}
+        .stat-info span { font-size: 1.2em; font-weight: bold; color: #28a745; display: block; margin-top: 5px;}
+        .stat-count { font-size: 0.9em; color: #666; }
+
+        details { margin-top: 20px; background: #f8f9fa; border-radius: 4px; padding: 10px; border: 1px solid #ddd; }
+        summary { font-weight: bold; cursor: pointer; color: #0056b3; outline: none; }
+        .history-list { margin-top: 15px; max-height: 300px; overflow-y: auto; }
+        .history-item { background: #fff; padding: 10px; margin-bottom: 8px; border-radius: 4px; border: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; font-size: 0.9em;}
+        
+        .action-buttons { display: flex; gap: 5px; flex-direction: column;}
+        .edit-btn { background: #ffc107; color: #333; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 0.8em; margin: 0;}
+        .edit-btn:hover { background: #e0a800; }
+        .delete-btn { background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 0.8em; margin: 0;}
+        .delete-btn:hover { background: #c82333; }
     </style>
 </head>
 <body>
@@ -35,33 +53,52 @@
         <input type="number" id="minutes" placeholder="e.g., 60">
     </div>
     
-    <button onclick="addJob()">Add Job</button>
+    <button id="submit-btn" onclick="submitJob()">Add Job</button>
+    <button id="cancel-edit-btn" class="btn-secondary" onclick="cancelEdit()">Cancel Edit</button>
 
     <div class="stats-section">
         <h2>Your Statistics</h2>
         <div class="stat-card">
-            <strong>Today:</strong> <span id="stat-day">0%</span>
+            <div class="stat-info">
+                <strong>Today</strong>
+                <span id="stat-day">0%</span>
+            </div>
+            <div class="stat-count" id="count-day">Jobs: 0</div>
         </div>
         <div class="stat-card">
-            <strong>This Week:</strong> <span id="stat-week">0%</span>
+            <div class="stat-info">
+                <strong>This Week</strong>
+                <span id="stat-week">0%</span>
+            </div>
+            <div class="stat-count" id="count-week">Jobs: 0</div>
         </div>
         <div class="stat-card">
-            <strong>This Month:</strong> <span id="stat-month">0%</span>
+            <div class="stat-info">
+                <strong>This Month</strong>
+                <span id="stat-month">0%</span>
+            </div>
+            <div class="stat-count" id="count-month">Jobs: 0</div>
         </div>
     </div>
+
+    <details>
+        <summary>View Job History</summary>
+        <div class="history-list" id="history-container">
+            </div>
+    </details>
 
     <button class="btn-danger" onclick="clearData()">Clear All Data</button>
 </div>
 
 <script>
-    // Load data from browser memory
     let jobs = JSON.parse(localStorage.getItem('techJobs')) || [];
+    let editingJobId = null;
 
     function saveJobs() {
         localStorage.setItem('techJobs', JSON.stringify(jobs));
     }
 
-    function addJob() {
+    function submitJob() {
         const points = parseFloat(document.getElementById('points').value);
         const minutes = parseFloat(document.getElementById('minutes').value);
 
@@ -70,47 +107,85 @@
             return;
         }
 
-        const job = {
-            id: Date.now(),
-            date: new Date().toISOString(),
-            points: points,
-            actualMinutes: minutes,
-            expectedMinutes: points * 5
-        };
+        if (editingJobId) {
+            // Обновляем существующую работу
+            const jobIndex = jobs.findIndex(j => j.id === editingJobId);
+            if (jobIndex !== -1) {
+                jobs[jobIndex].points = points;
+                jobs[jobIndex].actualMinutes = minutes;
+                jobs[jobIndex].expectedMinutes = points * 5;
+            }
+            cancelEdit(); // Сбрасываем форму после обновления
+        } else {
+            // Создаем новую работу
+            const job = {
+                id: Date.now(),
+                date: new Date().toISOString(),
+                points: points,
+                actualMinutes: minutes,
+                expectedMinutes: points * 5
+            };
+            jobs.push(job);
+            
+            document.getElementById('points').value = '';
+            document.getElementById('minutes').value = '';
+        }
 
-        jobs.push(job);
         saveJobs();
-        
+        updateUI();
+    }
+
+    function editJob(id) {
+        const job = jobs.find(j => j.id === id);
+        if (job) {
+            // Подставляем значения в поля
+            document.getElementById('points').value = job.points;
+            document.getElementById('minutes').value = job.actualMinutes;
+            
+            // Меняем интерфейс для редактирования
+            editingJobId = id;
+            document.getElementById('submit-btn').innerText = 'Update Job';
+            document.getElementById('cancel-edit-btn').style.display = 'block';
+            
+            // Прокручиваем страницу наверх к форме ввода
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }
+
+    function cancelEdit() {
+        editingJobId = null;
+        document.getElementById('submit-btn').innerText = 'Add Job';
+        document.getElementById('cancel-edit-btn').style.display = 'none';
         document.getElementById('points').value = '';
         document.getElementById('minutes').value = '';
-        
-        updateStats();
+    }
+
+    function deleteJob(id) {
+        if(confirm("Delete this job?")) {
+            jobs = jobs.filter(job => job.id !== id);
+            saveJobs();
+            updateUI();
+        }
     }
 
     function calculateProductivity(filteredJobs) {
         if (filteredJobs.length === 0) return "0%";
-        
         let totalExpected = 0;
         let totalActual = 0;
-
         filteredJobs.forEach(job => {
             totalExpected += job.expectedMinutes;
             totalActual += job.actualMinutes;
         });
-
         const productivity = (totalExpected / totalActual) * 100;
         return productivity.toFixed(1) + "%";
     }
 
-    function updateStats() {
+    function updateUI() {
         const now = new Date();
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
         
-        // Start of the week (Monday)
         const dayOfWeek = now.getDay() || 7; 
         const startOfWeek = new Date(startOfDay - (dayOfWeek - 1) * 24 * 60 * 60 * 1000).getTime();
-        
-        // Start of the month
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
         const todayJobs = jobs.filter(job => new Date(job.date).getTime() >= startOfDay);
@@ -120,18 +195,56 @@
         document.getElementById('stat-day').innerText = calculateProductivity(todayJobs);
         document.getElementById('stat-week').innerText = calculateProductivity(weekJobs);
         document.getElementById('stat-month').innerText = calculateProductivity(monthJobs);
+
+        document.getElementById('count-day').innerText = `Jobs: ${todayJobs.length}`;
+        document.getElementById('count-week').innerText = `Jobs: ${weekJobs.length}`;
+        document.getElementById('count-month').innerText = `Jobs: ${monthJobs.length}`;
+
+        renderHistory();
+    }
+
+    function renderHistory() {
+        const container = document.getElementById('history-container');
+        container.innerHTML = ''; 
+
+        if (jobs.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #666;">No jobs added yet.</p>';
+            return;
+        }
+
+        const sortedJobs = [...jobs].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        sortedJobs.forEach(job => {
+            const dateObj = new Date(job.date);
+            const dateString = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            const prod = ((job.expectedMinutes / job.actualMinutes) * 100).toFixed(1);
+
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            div.innerHTML = `
+                <div>
+                    <strong>${dateString}</strong><br>
+                    Pts: ${job.points} | Mins: ${job.actualMinutes} | Prod: ${prod}%
+                </div>
+                <div class="action-buttons">
+                    <button class="edit-btn" onclick="editJob(${job.id})">✎ Edit</button>
+                    <button class="delete-btn" onclick="deleteJob(${job.id})">✖</button>
+                </div>
+            `;
+            container.appendChild(div);
+        });
     }
 
     function clearData() {
         if(confirm("Are you sure you want to delete all data? This action cannot be undone.")) {
             jobs = [];
             saveJobs();
-            updateStats();
+            updateUI();
         }
     }
 
-    // Initialize stats on page load
-    updateStats();
+    // Initialize UI
+    updateUI();
 </script>
 
 </body>
