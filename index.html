@@ -47,8 +47,9 @@
         .delete-btn { background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 0.8em; margin: 0; width: 60px;}
         .delete-btn:hover { background: #c82333; }
 
-        /* Стиль для счетчиков работ в дереве */
+        /* Стиль для счетчиков и процентов в дереве */
         .node-count { color: #888; font-size: 0.85em; font-weight: normal; margin-left: 5px; }
+        .node-prod { color: #28a745; font-weight: bold; font-size: 0.9em; margin-left: 5px; }
     </style>
 </head>
 <body>
@@ -97,7 +98,8 @@
     <details class="history-main-details" open>
         <summary>View Job History</summary>
         <div id="history-container">
-            </div>
+            <!-- Дерево будет генерироваться здесь -->
+        </div>
     </details>
 
     <button class="btn-danger" onclick="clearData()">Clear All Data</button>
@@ -242,13 +244,15 @@
             tree[year][month][weekStr][dayStr].push(job);
         });
 
-        // 2. Отрисовываем дерево с подсчетом
+        // 2. Отрисовываем дерево с подсчетом работ и продуктивности
         Object.keys(tree).sort((a,b) => b - a).forEach(year => {
             const yearDetails = document.createElement('details');
             yearDetails.className = 'tree-node';
             yearDetails.open = true;
             
             let yearJobCount = 0;
+            let yearExpected = 0;
+            let yearActual = 0;
             const yearSummary = document.createElement('summary');
             yearDetails.appendChild(yearSummary);
             
@@ -258,6 +262,8 @@
                 monthDetails.open = true;
                 
                 let monthJobCount = 0;
+                let monthExpected = 0;
+                let monthActual = 0;
                 const monthSummary = document.createElement('summary');
                 monthDetails.appendChild(monthSummary);
                 
@@ -266,6 +272,8 @@
                     weekDetails.className = 'tree-node';
                     
                     let weekJobCount = 0;
+                    let weekExpected = 0;
+                    let weekActual = 0;
                     const weekSummary = document.createElement('summary');
                     weekDetails.appendChild(weekSummary);
                     
@@ -276,17 +284,16 @@
                         const dayJobs = tree[year][month][week][day].sort((a,b) => new Date(b.date) - new Date(a.date));
                         const dayJobCount = dayJobs.length;
                         
-                        // Добавляем к родительским счетчикам
-                        weekJobCount += dayJobCount;
-                        monthJobCount += dayJobCount;
-                        yearJobCount += dayJobCount;
-                        
-                        dayDetails.innerHTML = `<summary>${day} <span class="node-count">(${dayJobCount} jobs)</span></summary>`;
+                        let dayExpected = 0;
+                        let dayActual = 0;
                         
                         const jobsContainer = document.createElement('div');
                         jobsContainer.style.marginLeft = '35px'; 
                         
                         dayJobs.forEach(job => {
+                            dayExpected += job.expectedMinutes;
+                            dayActual += job.actualMinutes;
+                            
                             const timeStr = new Date(job.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                             const prod = ((job.expectedMinutes / job.actualMinutes) * 100).toFixed(1);
                             
@@ -305,19 +312,38 @@
                             jobsContainer.appendChild(jobDiv);
                         });
                         
+                        // Добавляем время к родительским счетчикам
+                        weekJobCount += dayJobCount;
+                        weekExpected += dayExpected;
+                        weekActual += dayActual;
+                        
+                        monthJobCount += dayJobCount;
+                        monthExpected += dayExpected;
+                        monthActual += dayActual;
+                        
+                        yearJobCount += dayJobCount;
+                        yearExpected += dayExpected;
+                        yearActual += dayActual;
+                        
+                        const dayProd = dayActual > 0 ? ((dayExpected / dayActual) * 100).toFixed(1) : "0.0";
+                        dayDetails.innerHTML = `<summary>${day} <span class="node-count">(${dayJobCount} jobs)</span> <span class="node-prod">${dayProd}%</span></summary>`;
+                        
                         dayDetails.appendChild(jobsContainer);
                         weekDetails.appendChild(dayDetails);
                     });
                     
-                    weekSummary.innerHTML = `${week} <span class="node-count">(${weekJobCount} jobs)</span>`;
+                    const weekProd = weekActual > 0 ? ((weekExpected / weekActual) * 100).toFixed(1) : "0.0";
+                    weekSummary.innerHTML = `${week} <span class="node-count">(${weekJobCount} jobs)</span> <span class="node-prod">${weekProd}%</span>`;
                     monthDetails.appendChild(weekDetails);
                 });
                 
-                monthSummary.innerHTML = `${month} <span class="node-count">(${monthJobCount} jobs)</span>`;
+                const monthProd = monthActual > 0 ? ((monthExpected / monthActual) * 100).toFixed(1) : "0.0";
+                monthSummary.innerHTML = `${month} <span class="node-count">(${monthJobCount} jobs)</span> <span class="node-prod">${monthProd}%</span>`;
                 yearDetails.appendChild(monthDetails);
             });
             
-            yearSummary.innerHTML = `${year} <span class="node-count">(${yearJobCount} jobs)</span>`;
+            const yearProd = yearActual > 0 ? ((yearExpected / yearActual) * 100).toFixed(1) : "0.0";
+            yearSummary.innerHTML = `${year} <span class="node-count">(${yearJobCount} jobs)</span> <span class="node-prod">${yearProd}%</span>`;
             container.appendChild(yearDetails);
         });
     }
